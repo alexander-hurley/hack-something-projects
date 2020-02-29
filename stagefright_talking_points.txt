@@ -1,0 +1,48 @@
+The Stagefright vulnerability for android targets issues derived from the media processing library in android named Libstagefright. This was a point of interest in the system as the media processing library in android has an oddly high level of privileges compared to other apps and services. Attacking the media server or library could let the attacker easily escalate their privileges on the device.
+Libstagefright has been tied to 7 major vulnerabilities to date, all of which are exploitable on a wide range of mobile devices. The CVE (Common Vulnerabilities and Exposures) numbers are as follows:
+•	CVE-2015-1538
+•	CVE-2015-1539
+•	CVE-2015-3824
+•	CVE-2015-3826
+•	CVE-2015-3827
+•	CVE-2015-3828
+•	CVE-2015-3829
+A common misconception about the Stagefright vulnerability is that it only affects MMS. This is not the case, and it actually covers a wide range of different attack vectors. The various attack vectors are:
+•	Mobile Network - MMS
+•	Client Side - Browser Media Player
+•	Client Side – Browser Auto Download
+•	Client Side – Email
+•	Client Side - Gallery
+•	Physically Adjacent – NFC
+•	Physically Adjacent – Bluetooth
+•	Physically Adjacent – VCards
+•	Physical – SD Cards
+•	Physical – USB Drives
+•	Physical – USB MTP/PTP
+Given all these potential attack vectors, the MMS attack is the most widely used and known as it is the hardest to detect and the hardest to prevent.  
+Now let’s take the time to go through each of the major bugs found within Libstagefright and how each one works.
+CVE-2015-1538:
+	MPEG4 handling code contains 3GPP metadata which describes the format and other info when a video is in a 3GPP format. The handling of this code is done very poorly in the library and in cases where the metadata is excessively large, the data is passed instead of rejected. This was built by design for compatibility purposes. This can be abused by an attacker by means of creating a modified file with an excessive amount of metadata.
+	When a video is processed on an Android device, the software and library need to allocate memory dynamically, accounting for what processing needs to be done on the system. A buffer is created as a pointer, but in this case, the length of the memory array is too short. The metadata is then read into the array, but lacking a null value in the last entry. Typically, the last entry should be null as that’s how the software recognizes the array as finished. With the last entry missing a null (or zero) value, the malicious code can be read into another part of memory, and read too much data. Instead of stopping at the end of this value, it can continue reading other data and code that it shouldn’t.
+	This type of attack is commonly known as a buffer overflow.
+CVE-2015-1539
+	The second vulnerability is similar type of attack, only it takes a different approach to attain the same goal. The metadata manipulated uses a UTF-16 string. The shortest size for a UTF-16 string is at a minimum 6 bytes. The way the data is handled is very archaic as it takes the integer value size, and simply subtract 6 from it. If for example, you could count from 0-1024, and the integer given was 5, you would subtract 6 from 5 and loop back around to 1024. The actual number in this scenario would be much longer and will vary from system to system. 
+	With the size of the array wrapping around to the maximum value, a much bigger swap operation would occur. This would change values in the frame data in an unexpected way.
+	This type of attack has been referred to as an integer underflow.
+CVE-2015-3824
+	This vulnerability is the exact opposite of the last one, an integer overflow in which the integer can get too big. Say the maximum integer is 1024 again, if you exceed that number, the system cannot count any higher. The result would be to wrap around and reach 0. If you allocate memory like this (which is how Stagefright does it), you end up with far too little memory allocated in the array. When data is read into this, it would overwrite unrelated data with data that the attacker controls.
+ 
+CVE-2015-3826
+	This vulnerability is similar to the last one, using another overflow where an array would be too small. This allows unrelated memory to be overwritten by the malicious code. Instead of writing your malicious data into memory, you use it to corrupt the legitimate memory.
+CVE-2015-3827
+	The last major vulnerability uses a variable when skipping over memory, which can be negative like in CVE-2015-1539. The negative integer would result in a wrap around, leading to a very large skip length, overflowing a buffer. This would then give access to memory that shouldn’t be accessed. 
+CVE-2015-3829 and CVE-2015-3829 are very similar to the vulnerabilities before. They are an additional integer underflow and integer overflow respectively. 
+Android 5.1 attempted fix:
+	Google added a ‘fix’ for Stagefright in Android 5.1, which would add various checks to the library in an attempt to avoid these vulnerabilities. Unfortunately for Google, this band aid fix could actually be used for an additional attack vector for a buffer and integer overflow attack, using shockingly similar methods to the attack they tried to stop with its creation. This attack was appropriately known as Stagefright 2.0.
+As of Android 10, Libstagefright was rebuilt in a constrained sandbox to effectively mitigate this threat.
+ 
+Citations:
+J. Drake, “Stagefright: Scary Code in the Heart of Android,” 05-Aug-2015. [Online]. Available: https://www.blackhat.com/docs/us-15/materials/us-15-Drake-Stagefright-Scary-Code-In-The-Heart-Of-Android.pdf.
+Ksparakis, “ksparakis/Stagefright-Explained,” GitHub. [Online]. Available: https://github.com/ksparakis/Stagefright-Explained. [Accessed: 11-Nov-2019].
+A. Siddiqui, “Stagefright: The Exploit That Changed Android,” xda, 23-Oct-2018. [Online]. Available: https://www.xda-developers.com/stagefright-explained-the-exploit-that-changed-android/. [Accessed: 11-Nov-2019].
+“Stagefright (bug),” Wikipedia, 30-Sep-2019. [Online]. Available: https://en.wikipedia.org/wiki/Stagefright_(bug). [Accessed: 11-Nov-2019].
